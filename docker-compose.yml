@@ -1,0 +1,94 @@
+version: "3"
+services:
+
+  outline:
+    image: outlinewiki/outline
+    environment:
+      - DATABASE_URL=postgres://outline:pass@postgres:5432/outline
+      - DATABASE_URL_TEST=postgres://outline:pass@postgres:5432/outline-test
+      - REDIS_URL=redis://redis:6379
+    env_file: ./docker.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+      - storage
+
+  redis:
+    image: redis
+    env_file: ./docker.env
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis.conf:/redis.conf
+    command: ["redis-server", "/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+
+  postgres:
+    image: postgres
+    env_file: ./docker.env
+    environment:
+      POSTGRES_USER: outline
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: outline
+    ports:
+      - "5432:5432"
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready -U outline"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  storage:
+    image: minio/minio
+    env_file: ./docker.env
+    ports:
+      - "9000:9000"
+    entrypoint: sh
+    command: -c 'minio server /minio_root'
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - storage-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  https-portal:
+    image: steveltn/https-portal
+    env_file: ./docker.env
+    environment:
+      STAGE: production
+      PROXY_READ_TIMEOUT: 3600
+      DOMAINS: 'example.com -> http://outline:3000'
+      CLIENT_MAX_BODY_SIZE: '100M'
+      WEBSOCKET: 'true'
+    ports:
+      - '80:80'
+      - '443:443'
+    links:
+      - outline
+      - storage
+    restart: always
+    volumes:
+      - https-portal-data:/var/lib/https-portal
+    healthcheck:
+      test: ["CMD", "service", "nginx", "status"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  https-portal-data:
+  storage-data:
+  database-data:
