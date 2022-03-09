@@ -40,5 +40,3 @@ Step may show you error, do not pay attention.
 ## Run service
 
 `docker-compose up -d`
-
-step may fail, do not pay attention
