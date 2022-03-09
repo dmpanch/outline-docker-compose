@@ -37,6 +37,6 @@ Step may show you error, do not pay attention.
 
 `docker-compose run --rm outline yarn sequelize db:migrate --env=production-ssl-disabled`
 
-## Run service
+## 6. Run service
 
 `docker-compose up -d`
